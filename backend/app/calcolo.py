@@ -49,6 +49,7 @@ MAPPING_REVO = {
     "siccita'": "siccita",
     "siccità": "siccita",
     "alluvione": "alluvione",
+    "alluvioni": "alluvione",
     "eccesso di neve": "eccesso_neve",
     "colpo di sole/vento caldo": "colpo_sole_vento_caldo",
     "sbalzo termico": "sbalzo_termico",
