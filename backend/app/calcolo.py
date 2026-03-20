@@ -186,6 +186,7 @@ def calcola_preventivo_compagnia(
     capitale: float,
     garanzie_selezionate: set[str],
     regime: str,
+    applica_consorzio: bool = True,
 ) -> dict:
     """
     Calcola il preventivo per una singola compagnia.
@@ -223,7 +224,9 @@ def calcola_preventivo_compagnia(
     perc_agea = calcola_contributo_agea(garanzie_selezionate, regime)
     contributo_agea = round(totale_agevolato * perc_agea, 2)
     imposta_premi = round(premio_lordo * ALIQUOTA_IMPOSTA_PREMI, 2)
-    contributo_consorzio = round(capitale * ALIQUOTA_CONSORZIO_DIFESA, 2)
+    contributo_consorzio = (
+        round(capitale * ALIQUOTA_CONSORZIO_DIFESA, 2) if applica_consorzio else 0.0
+    )
     premio_netto = round(
         premio_lordo - contributo_agea + imposta_premi + contributo_consorzio, 2
     )
@@ -237,7 +240,7 @@ def calcola_preventivo_compagnia(
         "contributo_agea_eur": contributo_agea,
         "imposta_premi_perc": ALIQUOTA_IMPOSTA_PREMI * 100,
         "imposta_premi_eur": imposta_premi,
-        "consorzio_perc": ALIQUOTA_CONSORZIO_DIFESA * 100,
+        "consorzio_perc": ALIQUOTA_CONSORZIO_DIFESA * 100 if applica_consorzio else 0.0,
         "contributo_consorzio": contributo_consorzio,
         "premio_netto": premio_netto,
     }

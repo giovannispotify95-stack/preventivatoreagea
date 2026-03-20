@@ -44,6 +44,7 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
     grandine: 10,
   });
   const [tipoTariffaRM, setTipoTariffaRM] = useState<'normale' | 'sconti'>('normale');
+  const [applicaConsorzio, setApplicaConsorzio] = useState(true);
 
   // ── Carica province all'avvio ────────────────────────────────────
   useEffect(() => {
@@ -184,6 +185,7 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
 
     const req: PreventivoRequest = {
       comune_istat: comuneSelezionato.comune_istat,
+      comune_ciag: comuneSelezionato.comune_ciag,
       coltura_codice: colturaSelezionata.codice_ciag,
       superficie_ha: parseFloat(superficieHa),
       quintali_ha: parseFloat(quintaliHa),
@@ -192,6 +194,7 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
       garanzie: Array.from(garanzieSelezionate),
       franchigie,
       tipo_tariffa_rm: tipoTariffaRM,
+      applica_consorzio: applicaConsorzio,
     };
 
     onSubmit(req);
@@ -552,6 +555,41 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
             <span className="font-medium">Tariffa Sconti</span>
           </label>
         </div>
+      </div>
+
+      {/* ── Consorzio di Difesa ───────────────────────────────────── */}
+      <div className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all ${
+        applicaConsorzio
+          ? 'border-orange-400 bg-orange-50'
+          : 'border-gray-200 bg-gray-50'
+      }`}>
+        <div>
+          <p className={`font-medium ${applicaConsorzio ? 'text-orange-800' : 'text-gray-600'}`}>
+            Consorzio di Difesa
+          </p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Quota 0,4% sul valore assicurato
+            {applicaConsorzio
+              ? ' — verrà incluso nel premio finale'
+              : ' — NON incluso nel premio finale'}
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={applicaConsorzio}
+          onClick={() => setApplicaConsorzio((v) => !v)}
+          className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 ${
+            applicaConsorzio ? 'bg-orange-500' : 'bg-gray-300'
+          }`}
+          style={{ minWidth: '3.25rem' }}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
+              applicaConsorzio ? 'translate-x-7' : 'translate-x-1'
+            }`}
+          />
+        </button>
       </div>
 
       {/* ── Submit ────────────────────────────────────────────────── */}

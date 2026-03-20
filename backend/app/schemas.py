@@ -13,6 +13,7 @@ from typing import Optional
 class PreventivoRequest(BaseModel):
     """Richiesta di calcolo preventivo."""
     comune_istat: str = Field(..., description="Codice ISTAT del comune")
+    comune_ciag: Optional[str] = Field(default=None, description="Codice CIAG del comune (necessario per REVO)")
     coltura_codice: str = Field(..., description="Codice coltura (CIAG o ANIA)")
     superficie_ha: float = Field(..., gt=0, description="Superficie in ettari")
     quintali_ha: float = Field(default=1.0, gt=0, description="Quintali per ettaro (resa)")
@@ -30,6 +31,10 @@ class PreventivoRequest(BaseModel):
     tipo_tariffa_rm: Optional[str] = Field(
         default="normale",
         description="Tipo tariffa Reale Mutua: 'normale' o 'sconti'",
+    )
+    applica_consorzio: bool = Field(
+        default=True,
+        description="Se applicare il contributo Consorzio di Difesa (0,4% sul valore assicurato)",
     )
     note: Optional[str] = None
 

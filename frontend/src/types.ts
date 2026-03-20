@@ -20,6 +20,7 @@ export interface ColturaResult {
 
 export interface PreventivoRequest {
   comune_istat: string;
+  comune_ciag?: string;
   coltura_codice: string;
   superficie_ha: number;
   quintali_ha: number;
@@ -28,6 +29,7 @@ export interface PreventivoRequest {
   garanzie: string[];
   franchigie: Record<string, number>;
   tipo_tariffa_rm?: 'normale' | 'sconti';
+  applica_consorzio: boolean;
   note?: string;
 }
 

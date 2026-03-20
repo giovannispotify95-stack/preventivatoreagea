@@ -39,22 +39,39 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-blue-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-green-700 via-green-800 to-green-900 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <img src="/logo-gaa.jpg" alt="GAA Confagricoltura" className="h-12 w-auto" />
+      {/* Header — full banner con logo sfocato */}
+      <header className="relative overflow-hidden shadow-xl" style={{ minHeight: '110px' }}>
+        {/* Layer 1: immagine logo ingrandita e sfocata come sfondo */}
+        <div
+          className="absolute inset-0 scale-125 bg-cover bg-center"
+          style={{
+            backgroundImage: "url('/logo-gaa.jpg')",
+            filter: 'blur(14px) brightness(0.55) saturate(1.3)',
+          }}
+        />
+        {/* Layer 2: overlay verde scuro semitrasparente per leggibilità */}
+        <div className="absolute inset-0 bg-green-900/60" />
+
+        {/* Contenuto */}
+        <div className="relative z-10 max-w-7xl mx-auto px-4 py-5 flex items-center justify-between">
+          <div className="flex items-center gap-5">
+            {/* Logo reale, nitido sopra lo sfondo sfocato */}
+            <img
+              src="/logo-gaa.jpg"
+              alt="GAA Confagricoltura"
+              className="h-16 w-auto rounded-xl shadow-2xl ring-2 ring-white/30 object-contain bg-white/10"
+            />
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight drop-shadow-lg">
                 Preventivatore Polizze Agro-Meteorologiche
               </h1>
-              <p className="text-green-200 text-sm mt-1">
+              <p className="text-green-200 text-sm mt-0.5 drop-shadow">
                 Confronto multiplo tra Compagnie &mdash; AGEA / ISMEA
               </p>
             </div>
           </div>
           <div className="text-right text-green-200 text-xs hidden md:block">
-            <p>Generali &middot; REVO &middot; Reale Mutua</p>
+            <p className="font-semibold">Generali &middot; REVO &middot; Reale Mutua</p>
             <p className="mt-0.5">Anno {new Date().getFullYear()}</p>
           </div>
         </div>

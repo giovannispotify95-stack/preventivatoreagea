@@ -47,19 +47,35 @@ def calcola_preventivo(req: PreventivoRequest, db: Session = Depends(get_db)):
     # Calcola capitale: superficie (Ha) × resa (q/Ha) × prezzo (€/q)
     capitale = round(req.superficie_ha * req.quintali_ha * req.prezzo_unitario, 2)
 
-    # Trova info comune (dal primo record disponibile)
+    # Trova info comune dalla fonte di verità (Generali ha i dati anagrafici puliti)
     comune_info = db.query(Tariffa).filter(
-        Tariffa.comune_istat == req.comune_istat
+        Tariffa.comune_istat == req.comune_istat,
+        Tariffa.compagnia == "Generali",
     ).first()
 
     if not comune_info:
+        # Fallback: qualsiasi compagnia
+        comune_info = db.query(Tariffa).filter(
+            Tariffa.comune_istat == req.comune_istat
+        ).first()
+
+    if not comune_info:
         # Prova con codice CIAG
+        comune_info = db.query(Tariffa).filter(
+            Tariffa.comune_ciag == req.comune_istat,
+            Tariffa.compagnia == "Generali",
+        ).first()
+    if not comune_info:
         comune_info = db.query(Tariffa).filter(
             Tariffa.comune_ciag == req.comune_istat
         ).first()
 
     comune_nome = comune_info.comune_nome if comune_info else ""
     provincia = comune_info.provincia if comune_info else ""
+
+    # Recupera il codice CIAG dal DB se il frontend non lo ha inviato
+    # (serve per trovare le tariffe REVO che usano solo il codice CIAG)
+    comune_ciag_resolved = req.comune_ciag or (comune_info.comune_ciag if comune_info else None)
 
     # Trova info coltura
     coltura = db.query(PrezzoColtura).filter(
@@ -76,7 +92,7 @@ def calcola_preventivo(req: PreventivoRequest, db: Session = Depends(get_db)):
 
     for compagnia in COMPAGNIE:
         risultato = _calcola_per_compagnia(
-            db, compagnia, req, garanzie_set, capitale
+            db, compagnia, req, garanzie_set, capitale, comune_ciag_resolved
         )
         risultati_compagnie.append(risultato)
 
@@ -135,15 +151,24 @@ def _calcola_per_compagnia(
     req: PreventivoRequest,
     garanzie_set: set[str],
     capitale: float,
+    comune_ciag: str | None = None,
 ) -> PreventivoCompagnia:
     """Calcola il preventivo per una singola compagnia."""
 
     # Cerca tariffe per comune e coltura
+    # REVO usa solo comune_ciag (ISTAT vuoto), Generali e RealeMutua usano comune_istat
+    comune_ciag = comune_ciag or req.comune_ciag or ""
+    comune_conditions = (
+        (Tariffa.comune_istat == req.comune_istat)
+        | (Tariffa.comune_ciag == req.comune_istat)
+    )
+    if comune_ciag:
+        comune_conditions = comune_conditions | (Tariffa.comune_ciag == comune_ciag)
+
     query = db.query(Tariffa).filter(
         and_(
             Tariffa.compagnia == compagnia,
-            (Tariffa.comune_istat == req.comune_istat)
-            | (Tariffa.comune_ciag == req.comune_istat),
+            comune_conditions,
         )
     )
 
@@ -155,12 +180,24 @@ def _calcola_per_compagnia(
 
     tariffe = query.all()
 
+    # Normalizza il codice coltura per il matching specie:
+    # Generali usa codici brevi (es. "901"), REVO/RealeMutua usano 7 cifre con zeri finali (es. "9010000")
+    coltura_raw = req.coltura_codice.strip().lstrip("0") if req.coltura_codice else ""
+    coltura_padded = req.coltura_codice.ljust(7, "0")[:7] if req.coltura_codice else ""
+
+    def _specie_match(t: Tariffa) -> bool:
+        cod = (t.specie_codice or "").strip()
+        cod_stripped = cod.lstrip("0").rstrip("0")
+        return (
+            cod == req.coltura_codice
+            or cod == coltura_padded
+            or cod.lstrip("0") == coltura_raw
+            or cod_stripped == coltura_raw
+            or (t.specie_descrizione or "").upper() == req.coltura_codice.upper()
+        )
+
     # Filtra per codice specie se presente
-    tariffe_filtrate = [
-        t for t in tariffe
-        if t.specie_codice == req.coltura_codice
-        or t.specie_descrizione.upper() == req.coltura_codice.upper()
-    ] if tariffe else []
+    tariffe_filtrate = [t for t in tariffe if _specie_match(t)] if tariffe else []
 
     # Se non trovate per specie esatta, prova con tutte le tariffe del comune
     if not tariffe_filtrate:
@@ -201,7 +238,8 @@ def _calcola_per_compagnia(
 
     # Calcola preventivo
     risultato = calcola_preventivo_compagnia(
-        garanzie_dati, capitale, garanzie_set, req.regime
+        garanzie_dati, capitale, garanzie_set, req.regime,
+        applica_consorzio=req.applica_consorzio,
     )
 
     # Converti in schema response
