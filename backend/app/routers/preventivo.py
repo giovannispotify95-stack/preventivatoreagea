@@ -44,8 +44,8 @@ def calcola_preventivo(req: PreventivoRequest, db: Session = Depends(get_db)):
     if errori:
         raise HTTPException(status_code=422, detail={"errori_garanzie": errori})
 
-    # Calcola capitale
-    capitale = round(req.prezzo_unitario * req.superficie_ha, 2)
+    # Calcola capitale: superficie (Ha) × resa (q/Ha) × prezzo (€/q)
+    capitale = round(req.superficie_ha * req.quintali_ha * req.prezzo_unitario, 2)
 
     # Trova info comune (dal primo record disponibile)
     comune_info = db.query(Tariffa).filter(
@@ -117,6 +117,7 @@ def calcola_preventivo(req: PreventivoRequest, db: Session = Depends(get_db)):
         coltura_codice=req.coltura_codice,
         coltura_descrizione=coltura_desc,
         superficie_ha=req.superficie_ha,
+        quintali_ha=req.quintali_ha,
         prezzo_unitario=req.prezzo_unitario,
         capitale=capitale,
         regime=req.regime,
@@ -138,13 +139,21 @@ def _calcola_per_compagnia(
     """Calcola il preventivo per una singola compagnia."""
 
     # Cerca tariffe per comune e coltura
-    tariffe = db.query(Tariffa).filter(
+    query = db.query(Tariffa).filter(
         and_(
             Tariffa.compagnia == compagnia,
             (Tariffa.comune_istat == req.comune_istat)
             | (Tariffa.comune_ciag == req.comune_istat),
         )
-    ).all()
+    )
+
+    # Per RealeMutua filtra per tipo tariffa (versione_listino)
+    if compagnia == "RealeMutua":
+        from app.parsers.reale_mutua import VERSIONE_TARIFFA_NORMALE, VERSIONE_SCONTI
+        ver = VERSIONE_SCONTI if req.tipo_tariffa_rm == "sconti" else VERSIONE_TARIFFA_NORMALE
+        query = query.filter(Tariffa.versione_listino == ver)
+
+    tariffe = query.all()
 
     # Filtra per codice specie se presente
     tariffe_filtrate = [

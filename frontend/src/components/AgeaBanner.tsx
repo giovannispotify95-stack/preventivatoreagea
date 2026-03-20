@@ -53,8 +53,8 @@ export default function AgeaBanner({ garanzieSelezionate, regime }: Props) {
   return (
     <div className={`rounded-lg border-2 p-4 ${bgColor} transition-all duration-300`}>
       <div className="flex items-start gap-3">
-        <span className={`text-2xl ${iconColor}`}>
-          {perc >= 70 ? '🌾' : perc >= 48 ? 'ℹ️' : '⚠️'}
+        <span className={`text-2xl font-bold ${iconColor}`}>
+          {perc >= 70 ? 'A' : perc >= 48 ? 'i' : '!'}
         </span>
         <div>
           <h4 className={`font-bold text-lg ${textColor}`}>
@@ -65,7 +65,7 @@ export default function AgeaBanner({ garanzieSelezionate, regime }: Props) {
           </p>
           {regime !== 'agevolato' && (
             <p className="text-sm mt-2 text-amber-700 font-medium">
-              ⚠️ In regime Non Agevolato il contributo AGEA è sempre 0%.
+              In regime Non Agevolato il contributo AGEA e sempre 0%.
             </p>
           )}
         </div>

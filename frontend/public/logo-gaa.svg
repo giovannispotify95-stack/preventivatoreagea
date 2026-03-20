@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 80" fill="none">
+  <!-- GAA Text -->
+  <text x="10" y="52" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#1B6B3A">gaa</text>
+  <!-- Wheat Icon (simplified) -->
+  <g transform="translate(46, 12)">
+    <ellipse cx="0" cy="8" rx="3" ry="6" fill="#D4A017" />
+    <ellipse cx="-4" cy="14" rx="3" ry="5" fill="#D4A017" />
+    <ellipse cx="4" cy="14" rx="3" ry="5" fill="#D4A017" />
+    <ellipse cx="0" cy="20" rx="3" ry="5" fill="#D4A017" />
+    <line x1="0" y1="8" x2="0" y2="35" stroke="#1B6B3A" stroke-width="1.5" />
+  </g>
+  <!-- Full Text -->
+  <text x="115" y="22" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#1B6B3A">Gestioni</text>
+  <text x="115" y="38" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#1B6B3A">Assicurazioni</text>
+  <text x="115" y="54" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#1B6B3A">Agricole</text>
+  <text x="42" y="72" font-family="Arial, sans-serif" font-size="10" fill="#1B6B3A">Confagricoltura</text>
+</svg>

@@ -24,8 +24,10 @@ export async function cercaComuni(
   q: string,
   provincia?: string
 ): Promise<ComuneResult[]> {
-  const params = new URLSearchParams({ q });
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
   if (provincia) params.set('provincia', provincia);
+  params.set('limit', '1000');
   return fetchJSON<ComuneResult[]>(`${BASE_URL}/comuni?${params}`);
 }
 
@@ -34,9 +36,10 @@ export async function listaProvince(): Promise<string[]> {
 }
 
 export async function cercaColture(q: string): Promise<ColturaResult[]> {
-  return fetchJSON<ColturaResult[]>(
-    `${BASE_URL}/colture?${new URLSearchParams({ q })}`
-  );
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  params.set('limit', '2500');
+  return fetchJSON<ColturaResult[]>(`${BASE_URL}/colture?${params}`);
 }
 
 export async function listaRaggruppamenti(): Promise<string[]> {

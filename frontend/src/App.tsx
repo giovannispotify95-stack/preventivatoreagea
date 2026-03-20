@@ -42,16 +42,19 @@ export default function App() {
       {/* Header */}
       <header className="bg-gradient-to-r from-green-700 via-green-800 to-green-900 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-5 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-              🌾 Preventivatore Polizze Agro-Meteorologiche
-            </h1>
-            <p className="text-green-200 text-sm mt-1">
-              Confronto multiplo tra Compagnie — AGEA / ISMEA
-            </p>
+          <div className="flex items-center gap-4">
+            <img src="/logo-gaa.jpg" alt="GAA Confagricoltura" className="h-12 w-auto" />
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                Preventivatore Polizze Agro-Meteorologiche
+              </h1>
+              <p className="text-green-200 text-sm mt-1">
+                Confronto multiplo tra Compagnie &mdash; AGEA / ISMEA
+              </p>
+            </div>
           </div>
           <div className="text-right text-green-200 text-xs hidden md:block">
-            <p>Generali · REVO · Reale Mutua</p>
+            <p>Generali &middot; REVO &middot; Reale Mutua</p>
             <p className="mt-0.5">Anno {new Date().getFullYear()}</p>
           </div>
         </div>
@@ -61,7 +64,7 @@ export default function App() {
         {/* Form Card */}
         <section className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 md:p-8">
           <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-            📋 Dati del Preventivo
+            Dati del Preventivo
           </h2>
           <PreventivoForm onSubmit={handleCalcola} loading={loading} />
         </section>
@@ -70,7 +73,7 @@ export default function App() {
         {errore && (
           <div className="bg-red-50 border-l-4 border-red-500 rounded-xl p-5 shadow">
             <div className="flex items-start gap-3">
-              <span className="text-red-500 text-xl">⚠️</span>
+              <span className="text-red-500 text-xl font-bold">!</span>
               <div>
                 <h3 className="font-bold text-red-800">Errore nel calcolo</h3>
                 <p className="text-red-700 text-sm mt-1">{errore}</p>
@@ -86,14 +89,14 @@ export default function App() {
             <section className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 md:p-8">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                  📊 Confronto Preventivo
+                  Confronto Preventivo
                 </h2>
                 <button
                   type="button"
                   onClick={handleReset}
                   className="text-sm text-gray-500 hover:text-gray-700 underline"
                 >
-                  ↩ Nuovo preventivo
+                  Nuovo preventivo
                 </button>
               </div>
               <TabellaComparativa risultato={risultato} />
@@ -102,7 +105,7 @@ export default function App() {
             {/* Export */}
             <section className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6">
               <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                📤 Esportazione
+                Esportazione
               </h2>
               <ExportButtons
                 risultato={risultato}
@@ -115,7 +118,6 @@ export default function App() {
         {/* Informativa */}
         {!risultato && !errore && (
           <section className="text-center text-gray-400 py-12">
-            <p className="text-4xl mb-3">🏗️</p>
             <p className="text-sm">
               Compila il form sopra per ottenere il confronto tra le compagnie.
             </p>

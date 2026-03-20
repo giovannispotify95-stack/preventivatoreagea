@@ -1,92 +1,93 @@
 """
-Parser per PrezziColture.xlsx
-Prezzi assicurabili per ettaro, trasversale a tutte le compagnie.
+Parser per Prezzi_colture.xlsx — sheet "Tabelle1".
+
+Layout:
+  Riga 1: titolo consorzio
+  Riga 2: macro-header  (CODICE PRODOTTO, DESCRIZIONE PRODOTTO, ...)
+  Riga 3: sotto-header   (CIAG, ANIA, MIPAAF, ..., CONSORZIO, ISMEA, MAX, MED, MIN, ...)
+  Riga 4+: dati
+
+Colonne (1-based):
+  1  = CIAG
+  2  = ANIA
+  3  = MIPAAF
+  4  = Descrizione prodotto
+  5  = Descrizione varieta
+  6  = Codice consorzio
+  7  = Codice ISMEA
+  8  = Prezzo MAX
+  9  = Prezzo MED
+  10 = Prezzo MIN
+  11 = Territorio
+  12 = Standard Value 2026
+  13 = Indicazione SV provvisorio
+  14 = Coefficiente maggiorazione
+  15 = Standard Value BIO 2026
 """
 from __future__ import annotations
 
-import pandas as pd
-import re
 from typing import IO
+
+import openpyxl
 from sqlalchemy.orm import Session
+
 from app.models import PrezzoColtura
 
 
-def _parse_float_it(val) -> float:
-    if pd.isna(val) or val == "" or val is None:
+def _safe_float(val):
+    if val is None:
         return 0.0
-    if isinstance(val, (int, float)):
-        return float(val)
-    s = str(val).strip().replace(".", "").replace(",", ".")
     try:
-        return float(s)
-    except ValueError:
+        f = float(val)
+        return f if f == f else 0.0
+    except (ValueError, TypeError):
         return 0.0
 
 
-def _normalizza_colonna(col: str) -> str:
-    col = str(col).lower().strip()
-    col = re.sub(r"\s+", " ", col)
-    return col
-
-
-def _trova_col(cols_norm: list[str], possibili: list[str]) -> str | None:
-    for p in possibili:
-        for c in cols_norm:
-            if p in c:
-                return c
-    return None
+def _safe_str(val):
+    if val is None:
+        return ""
+    s = str(val).strip()
+    return "" if s.lower() == "nan" else s
 
 
 def parse_prezzi_colture(
     file: IO, db: Session, anno: int = 2026
 ) -> int:
-    """
-    Parsa PrezziColture.xlsx e inserisce i prezzi nel database.
-    Restituisce il numero di record inseriti.
-    """
-    df = pd.read_excel(file, engine="openpyxl")
-    cols_orig = list(df.columns)
-    cols_norm = [_normalizza_colonna(c) for c in cols_orig]
-    col_idx = {c: cols_orig[i] for i, c in enumerate(cols_norm)}
-
-    col_ciag = _trova_col(cols_norm, ["ciag"])
-    col_ania = _trova_col(cols_norm, ["ania"])
-    col_mipaaf = _trova_col(cols_norm, ["mipaaf"])
-    col_desc = _trova_col(cols_norm, ["descrizione"])
-    col_var = _trova_col(cols_norm, ["varietà", "varieta"])
-    col_consorzio = _trova_col(cols_norm, ["consorzio"])
-    col_ismea = _trova_col(cols_norm, ["ismea"])
-    col_max = _trova_col(cols_norm, ["max"])
-    col_med = _trova_col(cols_norm, ["med"])
-    col_min = _trova_col(cols_norm, ["min"])
-    col_coeff = _trova_col(cols_norm, ["coefficiente maggiorazione", "coeff. magg", "coeff maggiorazione"])
-    col_bio = _trova_col(cols_norm, ["standard value bio"])
-
+    """Parsa Prezzi_colture.xlsx e inserisce i prezzi nel database."""
+    wb = openpyxl.load_workbook(file, data_only=True)
+    ws = wb.active
     count = 0
-    for _, row in df.iterrows():
-        ciag = str(row.get(col_idx.get(col_ciag, ""), "")).strip() if col_ciag else ""
-        desc = str(row.get(col_idx.get(col_desc, ""), "")).strip() if col_desc else ""
 
-        if not ciag or ciag == "nan":
+    for row_idx in range(4, ws.max_row + 1):
+        get = lambda c, _r=row_idx: ws.cell(_r, c).value
+
+        ciag = _safe_str(get(1))
+        if not ciag:
+            continue
+
+        desc = _safe_str(get(4))
+        if not desc:
             continue
 
         prezzo = PrezzoColtura(
             codice_ciag=ciag,
-            codice_ania=str(row.get(col_idx.get(col_ania, ""), "")).strip() if col_ania else "",
-            codice_mipaaf=str(row.get(col_idx.get(col_mipaaf, ""), "")).strip() if col_mipaaf else "",
+            codice_ania=_safe_str(get(2)),
+            codice_mipaaf=_safe_str(get(3)),
             descrizione=desc,
-            varieta=str(row.get(col_idx.get(col_var, ""), "")).strip() if col_var else "",
-            prezzo_consorzio=_parse_float_it(row.get(col_idx.get(col_consorzio, ""), 0)) if col_consorzio else None,
-            prezzo_ismea=_parse_float_it(row.get(col_idx.get(col_ismea, ""), 0)) if col_ismea else None,
-            prezzo_max=_parse_float_it(row.get(col_idx.get(col_max, ""), 0)) if col_max else None,
-            prezzo_med=_parse_float_it(row.get(col_idx.get(col_med, ""), 0)) if col_med else None,
-            prezzo_min=_parse_float_it(row.get(col_idx.get(col_min, ""), 0)) if col_min else None,
-            coeff_maggiorazione=_parse_float_it(row.get(col_idx.get(col_coeff, ""), 1.0)) if col_coeff else 1.0,
-            standard_value_bio=_parse_float_it(row.get(col_idx.get(col_bio, ""), 0)) if col_bio else None,
+            varieta=_safe_str(get(5)),
+            prezzo_consorzio=_safe_float(get(6)),
+            prezzo_ismea=_safe_float(get(7)),
+            prezzo_max=_safe_float(get(8)),
+            prezzo_med=_safe_float(get(9)),
+            prezzo_min=_safe_float(get(10)),
+            coeff_maggiorazione=_safe_float(get(14)) or 1.0,
+            standard_value_bio=_safe_float(get(15)),
             anno=anno,
         )
         db.add(prezzo)
         count += 1
 
+    wb.close()
     db.commit()
     return count

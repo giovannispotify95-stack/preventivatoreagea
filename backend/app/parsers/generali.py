@@ -116,6 +116,9 @@ def parse_generali(file, db, anno=2026, versione=1):
             ))
             count += 1
 
+            if count % 5000 == 0:
+                db.flush()
+
     wb.close()
     db.commit()
     return count

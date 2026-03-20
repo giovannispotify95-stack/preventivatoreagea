@@ -31,7 +31,7 @@ export default function GaranzieSelector({
       {/* Garanzie Frequenziali */}
       <div>
         <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
-          ⚡ Garanzie Frequenziali
+          Garanzie Frequenziali
           <span className="text-xs font-normal text-gray-500 ml-2">
             (progressive — obbligatorie in ordine)
           </span>
@@ -93,7 +93,7 @@ export default function GaranzieSelector({
       {/* Garanzie Catastrofali */}
       <div>
         <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
-          🌪️ Garanzie Catastrofali
+          Garanzie Catastrofali
           {!pacchettoFreqCompleto && (
             <span className="text-xs font-normal text-red-500 ml-2">
               (richiedono pacchetto frequenziale completo GR+VF+EP)

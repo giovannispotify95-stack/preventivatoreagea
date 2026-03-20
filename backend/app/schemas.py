@@ -15,7 +15,8 @@ class PreventivoRequest(BaseModel):
     comune_istat: str = Field(..., description="Codice ISTAT del comune")
     coltura_codice: str = Field(..., description="Codice coltura (CIAG o ANIA)")
     superficie_ha: float = Field(..., gt=0, description="Superficie in ettari")
-    prezzo_unitario: float = Field(..., gt=0, description="Prezzo per ettaro in €")
+    quintali_ha: float = Field(default=1.0, gt=0, description="Quintali per ettaro (resa)")
+    prezzo_unitario: float = Field(..., gt=0, description="Prezzo per quintale in €")
     regime: str = Field(..., pattern="^(agevolato|non_agevolato)$")
     garanzie: list[str] = Field(
         ...,
@@ -25,6 +26,10 @@ class PreventivoRequest(BaseModel):
     franchigie: dict[str, float] = Field(
         default_factory=dict,
         description="Franchigia per garanzia: {'grandine': 10, 'vento_forte': 15, ...}",
+    )
+    tipo_tariffa_rm: Optional[str] = Field(
+        default="normale",
+        description="Tipo tariffa Reale Mutua: 'normale' o 'sconti'",
     )
     note: Optional[str] = None
 
@@ -68,6 +73,7 @@ class PreventivoResponse(BaseModel):
     coltura_codice: str
     coltura_descrizione: str
     superficie_ha: float
+    quintali_ha: float
     prezzo_unitario: float
     capitale: float
     regime: str

@@ -14,7 +14,7 @@ export default function TabellaComparativa({ risultato }: Props) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
         <p className="text-yellow-800 font-medium">
-          ⚠️ Nessuna compagnia ha tariffe disponibili per la combinazione selezionata.
+          Nessuna compagnia ha tariffe disponibili per la combinazione selezionata.
         </p>
       </div>
     );
@@ -27,7 +27,7 @@ export default function TabellaComparativa({ risultato }: Props) {
     <div className="overflow-x-auto">
       {/* Header riepilogo */}
       <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white rounded-t-xl p-5">
-        <h2 className="text-xl font-bold mb-2">📊 Preventivo Comparativo</h2>
+        <h2 className="text-xl font-bold mb-2">Preventivo Comparativo</h2>
         <div className="flex flex-wrap gap-4 text-sm opacity-90">
           <span>Coltura: <strong>{risultato.coltura_descrizione || risultato.coltura_codice}</strong></span>
           <span>Comune: <strong>{risultato.comune_nome}</strong></span>
@@ -38,7 +38,7 @@ export default function TabellaComparativa({ risultato }: Props) {
             Garanzie:{' '}
             {risultato.garanzie_selezionate.map((g) => (
               <span key={g} className="inline-block bg-white/20 rounded px-1.5 py-0.5 mx-0.5 text-xs">
-                {g.toUpperCase().replace(/_/g, ' ')} ✅
+                {g.toUpperCase().replace(/_/g, ' ')}
               </span>
             ))}
           </span>
@@ -63,7 +63,7 @@ export default function TabellaComparativa({ risultato }: Props) {
               >
                 {labelCompagnia(c.compagnia)}
                 {c.compagnia === migliore && (
-                  <span className="block text-xs text-green-600 font-medium">✅ PIÙ CONVENIENTE</span>
+                  <span className="block text-xs text-green-600 font-medium">PIU CONVENIENTE</span>
                 )}
               </th>
             ))}
@@ -174,7 +174,7 @@ export default function TabellaComparativa({ risultato }: Props) {
           {/* PREMIO NETTO FINALE */}
           <tr className="bg-gradient-to-r from-blue-50 to-green-50 font-bold text-lg">
             <td className="py-4 px-4 text-gray-900">
-              💰 PREMIO NETTO FINALE
+              PREMIO NETTO FINALE
               <br />
               <span className="text-xs font-normal text-gray-500">(a carico dell'agricoltore)</span>
             </td>
@@ -187,7 +187,7 @@ export default function TabellaComparativa({ risultato }: Props) {
               >
                 {formatEuro(c.premio_netto)}
                 {c.compagnia === migliore && (
-                  <span className="block text-xs text-green-600 mt-1">✅ MIGLIORE</span>
+                  <span className="block text-xs text-green-600 mt-1">MIGLIORE</span>
                 )}
               </td>
             ))}
@@ -197,9 +197,9 @@ export default function TabellaComparativa({ risultato }: Props) {
 
       {/* Note a piè di tabella */}
       <div className="mt-3 text-xs text-gray-500 space-y-1 px-2">
-        <p>📌 Imposta calcolata sul Premio Lordo</p>
-        <p>📌 Consorzio calcolato sul Valore Assicurato ({formatEuro(risultato.capitale)})</p>
-        <p>📌 Contributo Consorzio uguale per tutte le compagnie</p>
+        <p>Imposta calcolata sul Premio Lordo</p>
+        <p>Consorzio calcolato sul Valore Assicurato ({formatEuro(risultato.capitale)})</p>
+        <p>Contributo Consorzio uguale per tutte le compagnie</p>
       </div>
     </div>
   );

@@ -18,16 +18,29 @@ router = APIRouter(prefix="/api", tags=["Ricerca"])
 def cerca_comuni(
     q: str = Query("", min_length=0, description="Ricerca per nome, ISTAT o CIAG"),
     provincia: str = Query("", description="Filtro per provincia"),
-    limit: int = Query(50, le=200),
+    limit: int = Query(500, le=2000),
     db: Session = Depends(get_db),
 ):
-    """Cerca comuni disponibili nel database tariffe."""
+    """Cerca comuni disponibili nel database tariffe.
+    
+    Usa Generali come fonte di verità per nomi e province dei comuni,
+    poiché REVO e RealeMutua non hanno dati anagrafici puliti.
+    """
     query = db.query(
         Tariffa.comune_istat,
         Tariffa.comune_nome,
         Tariffa.provincia,
         Tariffa.comune_ciag,
+    ).filter(
+        Tariffa.compagnia == "Generali",
+        Tariffa.comune_istat.isnot(None),
+        Tariffa.comune_istat != "",
+        Tariffa.comune_nome.isnot(None),
+        Tariffa.comune_nome != "",
     ).distinct()
+
+    if provincia:
+        query = query.filter(Tariffa.provincia == provincia)
 
     if q:
         q_like = f"%{q}%"
@@ -37,10 +50,7 @@ def cerca_comuni(
             | (Tariffa.comune_ciag.ilike(q_like))
         )
 
-    if provincia:
-        query = query.filter(Tariffa.provincia.ilike(f"%{provincia}%"))
-
-    results = query.limit(limit).all()
+    results = query.order_by(Tariffa.comune_nome).limit(limit).all()
 
     return [
         ComuneResult(
@@ -70,7 +80,7 @@ def lista_province(db: Session = Depends(get_db)):
 @router.get("/colture", response_model=list[ColturaResult])
 def cerca_colture(
     q: str = Query("", min_length=0, description="Ricerca per nome o codice"),
-    limit: int = Query(50, le=200),
+    limit: int = Query(2500, le=5000),
     db: Session = Depends(get_db),
 ):
     """Cerca colture disponibili con prezzi."""
@@ -82,9 +92,10 @@ def cerca_colture(
             (PrezzoColtura.descrizione.ilike(q_like))
             | (PrezzoColtura.codice_ciag.ilike(q_like))
             | (PrezzoColtura.codice_ania.ilike(q_like))
+            | (PrezzoColtura.varieta.ilike(q_like))
         )
 
-    results = query.limit(limit).all()
+    results = query.order_by(PrezzoColtura.descrizione, PrezzoColtura.varieta).limit(limit).all()
 
     return [
         ColturaResult(

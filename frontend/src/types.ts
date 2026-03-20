@@ -22,10 +22,12 @@ export interface PreventivoRequest {
   comune_istat: string;
   coltura_codice: string;
   superficie_ha: number;
+  quintali_ha: number;
   prezzo_unitario: number;
   regime: 'agevolato' | 'non_agevolato';
   garanzie: string[];
   franchigie: Record<string, number>;
+  tipo_tariffa_rm?: 'normale' | 'sconti';
   note?: string;
 }
 
@@ -65,6 +67,7 @@ export interface PreventivoResponse {
   coltura_codice: string;
   coltura_descrizione: string;
   superficie_ha: number;
+  quintali_ha: number;
   prezzo_unitario: number;
   capitale: number;
   regime: string;

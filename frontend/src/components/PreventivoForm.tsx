@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { ComuneResult, ColturaResult, PreventivoRequest, Regime } from '../types';
 import { cercaComuni, cercaColture, listaProvince } from '../api';
 import GaranzieSelector from './GaranzieSelector';
@@ -14,19 +14,27 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
   const [province, setProvince] = useState<string[]>([]);
   const [provinciaSelezionata, setProvinciaSelezionata] = useState('');
 
+  // Comuni
+  const [comuniList, setComuniList] = useState<ComuneResult[]>([]);
+  const [comuniLoading, setComuniLoading] = useState(false);
   const [queryComune, setQueryComune] = useState('');
-  const [comuniSuggestions, setComuniSuggestions] = useState<ComuneResult[]>([]);
   const [comuneSelezionato, setComuneSelezionato] = useState<ComuneResult | null>(null);
   const [showComuniDropdown, setShowComuniDropdown] = useState(false);
+  const comuneRef = useRef<HTMLDivElement>(null);
 
+  // Colture
+  const [coltureAll, setColtureAll] = useState<ColturaResult[]>([]);
+  const [coltureLoading, setColtureLoading] = useState(false);
   const [queryColtura, setQueryColtura] = useState('');
-  const [coltureSuggestions, setColtureSuggestions] = useState<ColturaResult[]>([]);
   const [colturaSelezionata, setColturaSelezionata] = useState<ColturaResult | null>(null);
   const [showColtureDropdown, setShowColtureDropdown] = useState(false);
+  const colturaRef = useRef<HTMLDivElement>(null);
 
+  // Campi numerici
   const [superficieHa, setSuperficieHa] = useState<string>('');
+  const [quintaliHa, setQuintaliHa] = useState<string>('');
   const [prezzoUnitario, setPrezzoUnitario] = useState<string>('');
-  const [tipoPrezzo, setTipoPrezzo] = useState<'ismea' | 'max' | 'med' | 'min' | 'custom'>('med');
+  const [tipoPrezzo, setTipoPrezzo] = useState<'max' | 'med' | 'min' | 'custom'>('med');
   const [regime, setRegime] = useState<Regime>('agevolato');
 
   const [garanzieSelezionate, setGaranzieSelezionate] = useState<Set<string>>(
@@ -35,67 +43,93 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
   const [franchigie, setFranchigie] = useState<Record<string, number>>({
     grandine: 10,
   });
+  const [tipoTariffaRM, setTipoTariffaRM] = useState<'normale' | 'sconti'>('normale');
 
   // ── Carica province all'avvio ────────────────────────────────────
   useEffect(() => {
     listaProvince().then(setProvince).catch(() => {});
   }, []);
 
-  // ── Ricerca comuni ───────────────────────────────────────────────
+  // ── Carica tutte le colture all'avvio ────────────────────────────
   useEffect(() => {
-    if (queryComune.length < 2) {
-      setComuniSuggestions([]);
-      return;
-    }
-    const timeout = setTimeout(() => {
-      cercaComuni(queryComune, provinciaSelezionata)
-        .then((res) => {
-          setComuniSuggestions(res);
-          setShowComuniDropdown(true);
-        })
-        .catch(() => {});
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [queryComune, provinciaSelezionata]);
+    setColtureLoading(true);
+    cercaColture('').then((res) => {
+      setColtureAll(res);
+      setColtureLoading(false);
+    }).catch(() => setColtureLoading(false));
+  }, []);
 
-  // ── Ricerca colture ──────────────────────────────────────────────
+  // ── Carica comuni quando cambia la provincia ─────────────────────
   useEffect(() => {
-    if (queryColtura.length < 2) {
-      setColtureSuggestions([]);
+    if (!provinciaSelezionata) {
+      setComuniList([]);
       return;
     }
-    const timeout = setTimeout(() => {
-      cercaColture(queryColtura)
-        .then((res) => {
-          setColtureSuggestions(res);
-          setShowColtureDropdown(true);
-        })
-        .catch(() => {});
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [queryColtura]);
+    setComuniLoading(true);
+    cercaComuni('', provinciaSelezionata).then((res) => {
+      setComuniList(res);
+      setComuniLoading(false);
+    }).catch(() => setComuniLoading(false));
+  }, [provinciaSelezionata]);
+
+  // ── Filtra comuni client-side ────────────────────────────────────
+  const comuniFiltrati = useMemo(() => {
+    if (!queryComune) return comuniList;
+    const q = queryComune.toLowerCase();
+    return comuniList.filter(
+      (c) =>
+        c.comune_nome.toLowerCase().includes(q) ||
+        c.comune_istat.includes(q) ||
+        (c.comune_ciag && c.comune_ciag.includes(q))
+    );
+  }, [comuniList, queryComune]);
+
+  // ── Filtra colture client-side ───────────────────────────────────
+  const coltureFiltrate = useMemo(() => {
+    if (!queryColtura) return coltureAll.slice(0, 100);
+    const q = queryColtura.toLowerCase();
+    return coltureAll.filter(
+      (c) =>
+        c.descrizione.toLowerCase().includes(q) ||
+        (c.varieta && c.varieta.toLowerCase().includes(q)) ||
+        c.codice_ciag.includes(q) ||
+        (c.codice_ania && c.codice_ania.includes(q))
+    ).slice(0, 100);
+  }, [coltureAll, queryColtura]);
 
   // ── Aggiorna prezzo quando cambia tipo o coltura ─────────────────
   useEffect(() => {
     if (!colturaSelezionata || tipoPrezzo === 'custom') return;
-    const prezzi: Record<string, number | undefined> = {
-      ismea: colturaSelezionata.prezzo_ismea,
+    const prezzi: Record<string, number | undefined | null> = {
       max: colturaSelezionata.prezzo_max,
       med: colturaSelezionata.prezzo_med,
       min: colturaSelezionata.prezzo_min,
     };
     const val = prezzi[tipoPrezzo];
-    if (val !== undefined) {
+    if (val !== undefined && val !== null) {
       setPrezzoUnitario(val.toString());
     }
   }, [tipoPrezzo, colturaSelezionata]);
+
+  // ── Click outside per chiudere dropdown ──────────────────────────
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (comuneRef.current && !comuneRef.current.contains(e.target as Node)) {
+        setShowComuniDropdown(false);
+      }
+      if (colturaRef.current && !colturaRef.current.contains(e.target as Node)) {
+        setShowColtureDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   // ── Handlers ─────────────────────────────────────────────────────
   function selezionaComune(c: ComuneResult) {
     setComuneSelezionato(c);
     setQueryComune(`${c.comune_nome} (${c.comune_istat})`);
     setShowComuniDropdown(false);
-    if (c.provincia) setProvinciaSelezionata(c.provincia);
   }
 
   function selezionaColtura(c: ColturaResult) {
@@ -103,21 +137,27 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
     setQueryColtura(`${c.descrizione}${c.varieta ? ` - ${c.varieta}` : ''}`);
     setShowColtureDropdown(false);
     // Auto-set prezzo
-    if (c.prezzo_med) {
+    const prezzi: Record<string, number | undefined | null> = {
+      max: c.prezzo_max,
+      med: c.prezzo_med,
+      min: c.prezzo_min,
+    };
+    const val = prezzi[tipoPrezzo];
+    if (val !== undefined && val !== null) {
+      setPrezzoUnitario(val.toString());
+    } else if (c.prezzo_med) {
       setPrezzoUnitario(c.prezzo_med.toString());
       setTipoPrezzo('med');
     }
   }
 
-  function toggleGaranzia(id: string) {
+  const toggleGaranzia = useCallback((id: string) => {
     setGaranzieSelezionate((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
-        // Rimuovi anche le garanzie che dipendono da questa
         if (id === 'vento_forte') {
           next.delete('eccesso_pioggia');
-          // Rimuovi catastrofali
           for (const cat of ['gelo_brina', 'siccita', 'alluvione', 'eccesso_neve', 'colpo_sole_vento_caldo', 'sbalzo_termico']) {
             next.delete(cat);
           }
@@ -132,44 +172,47 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
       }
       return next;
     });
-  }
+  }, []);
 
-  function changeFranchigia(garanzia: string, valore: number) {
+  const changeFranchigia = useCallback((garanzia: string, valore: number) => {
     setFranchigie((prev) => ({ ...prev, [garanzia]: valore }));
-  }
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
-    if (!comuneSelezionato) return;
-    if (!colturaSelezionata) return;
-    if (!superficieHa || !prezzoUnitario) return;
+    if (!comuneSelezionato || !colturaSelezionata || !superficieHa || !prezzoUnitario || !quintaliHa) return;
 
     const req: PreventivoRequest = {
       comune_istat: comuneSelezionato.comune_istat,
       coltura_codice: colturaSelezionata.codice_ciag,
       superficie_ha: parseFloat(superficieHa),
+      quintali_ha: parseFloat(quintaliHa),
       prezzo_unitario: parseFloat(prezzoUnitario),
       regime,
       garanzie: Array.from(garanzieSelezionate),
       franchigie,
+      tipo_tariffa_rm: tipoTariffaRM,
     };
 
     onSubmit(req);
   }
 
-  // ── Render ───────────────────────────────────────────────────────
-  const capitale = superficieHa && prezzoUnitario
-    ? (parseFloat(superficieHa) * parseFloat(prezzoUnitario))
-    : 0;
+  // ── Calcoli ──────────────────────────────────────────────────────
+  const sup = parseFloat(superficieHa) || 0;
+  const qha = parseFloat(quintaliHa) || 0;
+  const pzu = parseFloat(prezzoUnitario) || 0;
+  const produzioneTotale = sup * qha;
+  const capitale = produzioneTotale * pzu;
 
+  // ── Render ───────────────────────────────────────────────────────
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Riga: Provincia + Comune */}
+
+      {/* ── Provincia ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Provincia
+            Provincia *
           </label>
           <select
             value={provinciaSelezionata}
@@ -178,16 +221,18 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
               setComuneSelezionato(null);
               setQueryComune('');
             }}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+            required
           >
-            <option value="">Tutte le province</option>
+            <option value="">-- Seleziona provincia --</option>
             {province.map((p) => (
               <option key={p} value={p}>{p}</option>
             ))}
           </select>
         </div>
 
-        <div className="relative">
+        {/* ── Comune ────────────────────────────────────────────── */}
+        <div className="relative" ref={comuneRef}>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Comune *
           </label>
@@ -197,32 +242,55 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
             onChange={(e) => {
               setQueryComune(e.target.value);
               setComuneSelezionato(null);
+              setShowComuniDropdown(true);
             }}
-            placeholder="Cerca per nome, ISTAT o CIAG..."
-            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            onFocus={() => {
+              if (provinciaSelezionata && comuniList.length > 0) {
+                setShowComuniDropdown(true);
+              }
+            }}
+            placeholder={
+              !provinciaSelezionata
+                ? 'Seleziona prima la provincia'
+                : comuniLoading
+                ? 'Caricamento comuni...'
+                : 'Cerca o seleziona comune...'
+            }
+            disabled={!provinciaSelezionata}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
             required
           />
-          {showComuniDropdown && comuniSuggestions.length > 0 && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {comuniSuggestions.map((c) => (
+          {comuneSelezionato && (
+            <span className="absolute right-3 top-9 text-green-600 text-sm">&#10003;</span>
+          )}
+          {showComuniDropdown && comuniFiltrati.length > 0 && (
+            <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              {comuniFiltrati.map((c) => (
                 <button
-                  key={`${c.comune_istat}-${c.comune_nome}`}
+                  key={c.comune_istat}
                   type="button"
                   onClick={() => selezionaComune(c)}
-                  className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-100"
+                  className={`w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-100 ${
+                    comuneSelezionato?.comune_istat === c.comune_istat ? 'bg-blue-50 font-semibold' : ''
+                  }`}
                 >
                   <span className="font-medium">{c.comune_nome}</span>
-                  <span className="text-gray-500 ml-2">({c.provincia})</span>
                   <span className="text-gray-400 ml-2 text-xs">ISTAT: {c.comune_istat}</span>
+                  {c.comune_ciag && <span className="text-gray-400 ml-1 text-xs">CIAG: {c.comune_ciag}</span>}
                 </button>
               ))}
+            </div>
+          )}
+          {showComuniDropdown && comuniFiltrati.length === 0 && queryComune.length > 0 && !comuniLoading && (
+            <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-3 text-sm text-gray-500">
+              Nessun comune trovato
             </div>
           )}
         </div>
       </div>
 
-      {/* Coltura */}
-      <div className="relative">
+      {/* ── Coltura ───────────────────────────────────────────────── */}
+      <div className="relative" ref={colturaRef}>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Coltura / Specie *
         </label>
@@ -232,30 +300,92 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
           onChange={(e) => {
             setQueryColtura(e.target.value);
             setColturaSelezionata(null);
+            setPrezzoUnitario('');
+            setShowColtureDropdown(true);
           }}
-          placeholder="Cerca coltura..."
+          onFocus={() => setShowColtureDropdown(true)}
+          placeholder={coltureLoading ? 'Caricamento colture...' : 'Cerca coltura (es. frumento, vite, mais...)'}
           className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           required
         />
-        {showColtureDropdown && coltureSuggestions.length > 0 && (
-          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-            {coltureSuggestions.map((c) => (
+        {colturaSelezionata && (
+          <span className="absolute right-3 top-9 text-green-600 text-sm">&#10003;</span>
+        )}
+        {showColtureDropdown && coltureFiltrate.length > 0 && (
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+            {coltureFiltrate.map((c, idx) => (
               <button
-                key={`${c.codice_ciag}-${c.varieta || ''}`}
+                key={`${c.codice_ciag}-${c.varieta || ''}-${idx}`}
                 type="button"
                 onClick={() => selezionaColtura(c)}
-                className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-100"
+                className={`w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-100 ${
+                  colturaSelezionata?.codice_ciag === c.codice_ciag && colturaSelezionata?.varieta === c.varieta
+                    ? 'bg-blue-50 font-semibold'
+                    : ''
+                }`}
               >
                 <span className="font-medium">{c.descrizione}</span>
                 {c.varieta && <span className="text-gray-500 ml-1">- {c.varieta}</span>}
                 <span className="text-gray-400 ml-2 text-xs">CIAG: {c.codice_ciag}</span>
+                {c.prezzo_med != null && (
+                  <span className="text-green-600 ml-2 text-xs font-medium">
+                    {c.prezzo_med.toFixed(2)} €/q
+                  </span>
+                )}
               </button>
             ))}
           </div>
         )}
+        {showColtureDropdown && coltureFiltrate.length === 0 && queryColtura.length > 1 && !coltureLoading && (
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-3 text-sm text-gray-500">
+            Nessuna coltura trovata
+          </div>
+        )}
       </div>
 
-      {/* Superficie + Prezzo */}
+      {/* ── Info Prezzi Coltura selezionata ──────────────────────── */}
+      {colturaSelezionata && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
+          <div className="text-sm text-emerald-800 font-medium mb-2">
+            Prezzi disponibili per: {colturaSelezionata.descrizione}
+            {colturaSelezionata.varieta ? ` (${colturaSelezionata.varieta})` : ''}
+          </div>
+          <div className="grid grid-cols-3 gap-3 text-sm">
+            {colturaSelezionata.prezzo_min != null && (
+              <div className={`px-3 py-2 rounded border cursor-pointer transition-all ${
+                tipoPrezzo === 'min'
+                  ? 'border-emerald-500 bg-emerald-100 font-semibold'
+                  : 'border-gray-200 bg-white hover:border-emerald-300'
+              }`} onClick={() => setTipoPrezzo('min')}>
+                <div className="text-gray-500 text-xs">Minimo</div>
+                <div className="text-emerald-700 font-medium">{colturaSelezionata.prezzo_min.toFixed(2)} €/q</div>
+              </div>
+            )}
+            {colturaSelezionata.prezzo_med != null && (
+              <div className={`px-3 py-2 rounded border cursor-pointer transition-all ${
+                tipoPrezzo === 'med'
+                  ? 'border-emerald-500 bg-emerald-100 font-semibold'
+                  : 'border-gray-200 bg-white hover:border-emerald-300'
+              }`} onClick={() => setTipoPrezzo('med')}>
+                <div className="text-gray-500 text-xs">Medio</div>
+                <div className="text-emerald-700 font-medium">{colturaSelezionata.prezzo_med.toFixed(2)} €/q</div>
+              </div>
+            )}
+            {colturaSelezionata.prezzo_max != null && (
+              <div className={`px-3 py-2 rounded border cursor-pointer transition-all ${
+                tipoPrezzo === 'max'
+                  ? 'border-emerald-500 bg-emerald-100 font-semibold'
+                  : 'border-gray-200 bg-white hover:border-emerald-300'
+              }`} onClick={() => setTipoPrezzo('max')}>
+                <div className="text-gray-500 text-xs">Massimo</div>
+                <div className="text-emerald-700 font-medium">{colturaSelezionata.prezzo_max.toFixed(2)} €/q</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Superficie + Quintali/Ha + Prezzo ────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -267,7 +397,7 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
             min="0.01"
             value={superficieHa}
             onChange={(e) => setSuperficieHa(e.target.value)}
-            placeholder="10"
+            placeholder="es. 10"
             className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             required
           />
@@ -275,24 +405,28 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tipo Prezzo
+            Resa (Quintali/Ha) *
           </label>
-          <select
-            value={tipoPrezzo}
-            onChange={(e) => setTipoPrezzo(e.target.value as typeof tipoPrezzo)}
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={quintaliHa}
+            onChange={(e) => setQuintaliHa(e.target.value)}
+            placeholder="es. 50"
             className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="ismea">ISMEA</option>
-            <option value="max">Massimo</option>
-            <option value="med">Medio</option>
-            <option value="min">Minimo</option>
-            <option value="custom">Personalizzato</option>
-          </select>
+            required
+          />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Prezzo Unitario (€/Ha) *
+            Prezzo (€/Quintale) *
+            {tipoPrezzo !== 'custom' && (
+              <span className="ml-1 text-xs text-emerald-600 font-normal">
+                ({tipoPrezzo === 'max' ? 'Massimo' : tipoPrezzo === 'med' ? 'Medio' : 'Minimo'})
+              </span>
+            )}
           </label>
           <input
             type="number"
@@ -303,28 +437,35 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
               setPrezzoUnitario(e.target.value);
               setTipoPrezzo('custom');
             }}
-            placeholder="100"
+            placeholder={colturaSelezionata ? 'Seleziona prezzo sopra' : 'Seleziona prima coltura'}
             className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             required
           />
         </div>
       </div>
 
-      {/* Capitale */}
+      {/* ── Riepilogo Capitale ────────────────────────────────────── */}
       {capitale > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-          <span className="text-sm text-blue-700">
-            💰 Valore Assicurato (Capitale): <strong className="text-lg">
-              {new Intl.NumberFormat('it-IT', {
-                style: 'currency',
-                currency: 'EUR',
-              }).format(capitale)}
-            </strong>
-          </span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-blue-700">
+            <div>
+              Produzione totale: <strong>{produzioneTotale.toFixed(2)} q</strong>
+              <span className="text-blue-500 ml-1">({sup} Ha x {qha} q/Ha)</span>
+            </div>
+            <div>
+              Valore Assicurato: <strong className="text-lg">
+                {new Intl.NumberFormat('it-IT', {
+                  style: 'currency',
+                  currency: 'EUR',
+                }).format(capitale)}
+              </strong>
+              <span className="text-blue-500 ml-1">({produzioneTotale.toFixed(0)} q x {pzu.toFixed(2)} €/q)</span>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Regime */}
+      {/* ── Regime ────────────────────────────────────────────────── */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Regime
@@ -363,7 +504,7 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
         </div>
       </div>
 
-      {/* Selezione Garanzie */}
+      {/* ── Selezione Garanzie ────────────────────────────────────── */}
       <GaranzieSelector
         garanzieSelezionate={garanzieSelezionate}
         franchigie={franchigie}
@@ -371,13 +512,52 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
         onChangeFranchigia={changeFranchigia}
       />
 
-      {/* Banner AGEA */}
+      {/* ── Banner AGEA ───────────────────────────────────────────── */}
       <AgeaBanner garanzieSelezionate={garanzieSelezionate} regime={regime} />
 
-      {/* Submit */}
+      {/* ── Tipo Tariffa Reale Mutua ──────────────────────────────── */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Tariffa Reale Mutua
+        </label>
+        <div className="flex gap-4">
+          <label className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 cursor-pointer transition-all ${
+            tipoTariffaRM === 'normale'
+              ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
+              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+          }`}>
+            <input
+              type="radio"
+              name="tipoTariffaRM"
+              value="normale"
+              checked={tipoTariffaRM === 'normale'}
+              onChange={() => setTipoTariffaRM('normale')}
+              className="text-emerald-600"
+            />
+            <span className="font-medium">Tariffa Normale</span>
+          </label>
+          <label className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 cursor-pointer transition-all ${
+            tipoTariffaRM === 'sconti'
+              ? 'border-blue-500 bg-blue-50 text-blue-800'
+              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+          }`}>
+            <input
+              type="radio"
+              name="tipoTariffaRM"
+              value="sconti"
+              checked={tipoTariffaRM === 'sconti'}
+              onChange={() => setTipoTariffaRM('sconti')}
+              className="text-blue-600"
+            />
+            <span className="font-medium">Tariffa Sconti</span>
+          </label>
+        </div>
+      </div>
+
+      {/* ── Submit ────────────────────────────────────────────────── */}
       <button
         type="submit"
-        disabled={loading || !comuneSelezionato || !colturaSelezionata || !superficieHa || !prezzoUnitario}
+        disabled={loading || !comuneSelezionato || !colturaSelezionata || !superficieHa || !quintaliHa || !prezzoUnitario}
         className="w-full py-3 px-6 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold rounded-xl shadow-lg hover:from-blue-700 hover:to-blue-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-lg"
       >
         {loading ? (
@@ -389,7 +569,7 @@ export default function PreventivoForm({ onSubmit, loading }: Props) {
             Calcolo in corso...
           </span>
         ) : (
-          '📊 Calcola Preventivo Comparativo'
+          'Calcola Preventivo Comparativo'
         )}
       </button>
     </form>

@@ -2,10 +2,14 @@
 Database configuration - SQLite per sviluppo locale, PostgreSQL per produzione.
 """
 import os
+from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./preventivatoreagea.db")
+# Path assoluto al DB nella directory backend/ indipendentemente dal CWD
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+_DEFAULT_DB = f"sqlite:///{_BACKEND_DIR / 'preventivatoreagea.db'}"
+DATABASE_URL = os.getenv("DATABASE_URL", _DEFAULT_DB)
 
 # SQLite needs check_same_thread=False
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
